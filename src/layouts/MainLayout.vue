@@ -1,6 +1,6 @@
 <template>
   <div class="q-pa-md">
-    <q-layout view="hHh Lpr lff" container style="height: 97vh" class="shadow-2 rounded-borders">
+    <q-layout view="hHh Lpr lff" container style="height: 95vh" class="shadow-2 rounded-borders">
       <q-header elevated class="bg-black">
         <q-toolbar>
           <q-btn
@@ -39,7 +39,7 @@
       >
         <q-tree
           :nodes="simple"
-          node-key="label"
+          node-key="id"
           no-connectors
           @lazy-load="onLazyLoad"
           v-model:expanded="expanded"
@@ -125,60 +125,23 @@ export default defineComponent({
   components: {
     //EssentialLink,
   },
-  mounted(){
-    let arrows = document.getElementsByClassName('my_arrow');
-    for (let arrow of arrows) {
-      arrow.style.width = '24px';
-      arrow.parentElement.style.width='24px';
-      arrow.parentElement.style.margin='0px';
-      arrow.parentElement.style.padding='0px';
-      arrow.parentElement.style.pointerEvents='none';
-    }
-    let tabs = document.getElementsByClassName('my_tab');
-    for (let tab of tabs) {
-      tab.children[0].style.fontSize='15px';
-      tab.style.paddingTop="6.8px";
-      tab.parentElement.style.margin='0px';
-      tab.parentElement.style.padding='4px';
-    }
-    // arrows.forEach(arrow=>{
-    //   arrow.parentElement.style.width='24px';
-    // })
-  },
-  methods:{
-
-  },
-  setup() {
-    const leftDrawerOpen = ref(false);
-
-    const handleClick=function(node){
-      // if(node.children===undefined){
-      //   Object.assign(node, {children:[]})
-      // }
-      // let arr = node.children;
-      // if(node.label==='logfile'){
-      //   if(arr.find(child=>child.label==='okk')===undefined){
-      //     arr.push({label:'okk',handler:(node)=>handleClick(node)})
-      //   }
-      //   console.log(node.children.length);
-      // }
-      console.log(node.children.length);
-    }
-    return {
+  data(){
+    return{
       essentialLinks: linksList,
-      leftDrawerOpen,
+      leftDrawerOpen: ref(false),
       tab: ref('file-tab'),
       tab2: ref('file-tab'),
-      expanded: ref(['logfile']),
+      expanded: ref(['0']),
       tabs: [
         {name: 'alarms', label: 'Alarms', 'content-class': 'my_tab'},
         {name: 'arrow', icon: 'navigate_next', 'content-class': 'my_arrow'},
         {name: 'movies', label: 'Movies', 'content-class': 'my_tab'}],
       simple: [
         {
+          id:'0',
           label: 'logfile',
           lazy:true,
-          handler: (node)=>{handleClick(node)},
+          handler: (node)=>{this.handleClick(node)},
           // children: [
           //   {
           //     label: 'ChinaOpen',
@@ -203,28 +166,75 @@ export default defineComponent({
           // ]
         }
       ],
-      toggleLeftDrawer() {
-        leftDrawerOpen.value = !leftDrawerOpen.value
-      },
+    }
+  },
+  mounted(){
+    let arrows = document.getElementsByClassName('my_arrow');
+    for (let arrow of arrows) {
+      arrow.style.width = '24px';
+      arrow.parentElement.style.width='24px';
+      arrow.parentElement.style.margin='0px';
+      arrow.parentElement.style.padding='0px';
+      arrow.parentElement.style.pointerEvents='none';
+    }
+    let tabs = document.getElementsByClassName('my_tab');
+    for (let tab of tabs) {
+      tab.children[0].style.fontSize='15px';
+      tab.style.paddingTop="6.8px";
+      tab.parentElement.style.margin='0px';
+      tab.parentElement.style.padding='4px';
+    }
+    // arrows.forEach(arrow=>{
+    //   arrow.parentElement.style.width='24px';
+    // })
+  },
+  methods:{
+    handleClick(node){
+      // if(node.children===undefined){
+      //   Object.assign(node, {children:[]})
+      // }
+      // let arr = node.children;
+      // if(node.label==='logfile'){
+      //   if(arr.find(child=>child.label==='okk')===undefined){
+      //     arr.push({label:'okk',handler:(node)=>handleClick(node)})
+      //   }
+      //   console.log(node.children.length);
+      // }
+
+      console.log(node.children.length);
+    },
+    toggleLeftDrawer() {
+      this.leftDrawerOpen.value = !this.leftDrawerOpen.value
+    },
+  },
+  setup() {
+
+
+    return {
+
+
       onLazyLoad ({ node, key, done, fail }) {
         // call fail() if any error occurs
 
         setTimeout(() => {
           // simulate loading and setting an empty node
-          if (key.indexOf('Lazy load empty') > -1) {
+          if (key.indexOf('Lazy load empty') > -1||node.id!=='0') {
             done([])
             return
           }
 
           const label = node.label
+          const id = node.id
           done([
-            { label: `${label}.1` },
-            { label: `${label}.2`, lazy: true },
+            { label: `${label}.0` , id: `${id}.0`, handler: (node)=>{this.handleClick(node)}},
+            { label: `${label}.1`, id: `${id}.1`, lazy: true ,handler: (node)=>{this.handleClick(node)}},
             {
-              label: `${label}.3`,
+              label: `${label}.2`,
+              id: `${id}.2`,
+              handler: (node)=>{this.handleClick(node)},
               children: [
-                { label: `${label}.3.1`, lazy: true },
-                { label: `${label}.3.2`, lazy: true }
+                { label: `${label}.2.0`, lazy: true, id: `${id}.2.0` ,handler: (node)=>{this.handleClick(node)}},
+                { label: `${label}.2.1`, lazy: true, id: `${id}.2.1` ,handler: (node)=>{this.handleClick(node)}}
               ]
             }
           ],500)
