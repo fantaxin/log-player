@@ -1,6 +1,6 @@
-import { store } from 'quasar/wrappers'
-import { createStore } from 'vuex'
-import { PlayState } from 'src/js/util/Constants'
+import {store} from 'quasar/wrappers'
+import {createStore} from 'vuex'
+import {PlayState} from 'src/js/util/Constants'
 
 // import example from './module-example'
 
@@ -14,12 +14,14 @@ import { PlayState } from 'src/js/util/Constants'
  */
 
 export default store(function (/* { ssrContext } */) {
-  const Store = createStore({
+  return createStore({
     state() {
       return {
         playState: PlayState.NOTUSED,
         isNight: false,
         isFull: false,
+        fileId: 0,
+        filePath: '0',
       }
 
     },
@@ -42,6 +44,4 @@ export default store(function (/* { ssrContext } */) {
     },
     actions: {}
   })
-
-  return Store
 })

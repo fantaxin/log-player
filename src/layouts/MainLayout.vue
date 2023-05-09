@@ -1,6 +1,6 @@
 <template>
   <div class="q-pa-md">
-    <q-layout view="hHh Lpr lff" container style="height: 96vh" class="shadow-2 rounded-borders">
+    <q-layout view="hHh Lpr lff" container style="height: 95vh" class="shadow-2 rounded-borders">
       <q-header elevated class="bg-black">
         <q-toolbar>
           <q-btn
@@ -16,8 +16,8 @@
             Log Player
           </q-toolbar-title>
 
-          <q-breadcrumbs class="text-grey" active-color="white" style="font-size: 16px">
-            <q-breadcrumbs-el v-for="crumb in crumbs" :key="crumb.id" :label="crumb.label" @click="crumbClick"/>
+          <q-breadcrumbs class="text-secondary" active-color="white" separator-color="grey" style="font-size: 16px">
+            <q-breadcrumbs-el v-for="crumb in crumbs" :key="crumb.path" :label="crumb.label" @click="crumbClick(crumb.path)"/>
           </q-breadcrumbs>
 
           <q-space/>
@@ -29,7 +29,7 @@
             <q-icon v-if="isDark" name="light_mode"/>
             <q-icon v-else name="dark_mode"/>
           </q-btn>
-<!--          <div>Quasar v{{ $q.version }}</div>-->
+          <!--          <div>Quasar v{{ $q.version }}</div>-->
         </q-toolbar>
       </q-header>
 
@@ -40,10 +40,12 @@
       >
         <q-tree
           :nodes="fileTree"
-          node-key="id"
+          node-key="path"
           no-connectors
+          selected-color="primary"
           @lazy-load="onLazyLoad"
-          v-model:expanded="expanded"
+          @update:selected="selectedChange"
+          v-model:selected="store.state.filePath"
         />
       </q-drawer>
 
@@ -71,10 +73,12 @@
 
 <script>
 import {defineComponent, ref, toRaw} from 'vue'
-import { useQuasar } from 'quasar'
+import {useQuasar} from 'quasar'
 import EssentialLink from 'components/EssentialLink.vue'
 import PlayerMedia from 'components/PlayerMedia.vue'
 import FileList from 'components/FileList.vue'
+import {request} from "src/js/util/Request";
+import {useStore} from "vuex";
 
 export default defineComponent({
   name: 'MainLayout',
@@ -82,189 +86,184 @@ export default defineComponent({
     //EssentialLink,
     FileList
   },
-  data(){
-    return{
+  data() {
+    return {
       $q: useQuasar(),
       isDark: false,
       leftDrawerOpen: true,
+      store: useStore(),
       contentTab: ref('file-tab'),
-      expanded: ref(['0']),
-      crumbs:[
-        {id:'0', label:'logfile'}],
+      tree_selected: ref(0),
+      crumbs: [
+        {path: '0', label: 'log'}],
       fileTree: [
         {
-          id:'0',
-          label: 'logfile',
-          handler: (node)=>{this.handleClick(node)},
-          children:[
-            {
-              id: '0.0',
-              label: 'ChinaOpen',
-              handler: (node)=>{this.handleClick(node)},
-            }
-          ]
+          id: 0,
+          path: '0',
+          label: 'log',
+          icon:'folder',
+          handler: (node) => {
+            this.handleClick(node)
+          },
+          lazy: true,
+          children: []
         }
       ],
     }
   },
-  mounted(){
+  mounted() {
     let arrows = document.getElementsByClassName('my_arrow');
     for (let arrow of arrows) {
       arrow.style.width = '24px';
-      arrow.parentElement.style.width='24px';
-      arrow.parentElement.style.margin='0px';
-      arrow.parentElement.style.padding='0px';
-      arrow.parentElement.style.pointerEvents='none';
+      arrow.parentElement.style.width = '24px';
+      arrow.parentElement.style.margin = '0px';
+      arrow.parentElement.style.padding = '0px';
+      arrow.parentElement.style.pointerEvents = 'none';
     }
     let tabs = document.getElementsByClassName('my_tab');
     for (let tab of tabs) {
-      tab.children[0].style.fontSize='15px';
-      tab.style.paddingTop="6.8px";
-      tab.parentElement.style.margin='0px';
-      tab.parentElement.style.padding='4px';
+      tab.children[0].style.fontSize = '15px';
+      tab.style.paddingTop = "6.8px";
+      tab.parentElement.style.margin = '0px';
+      tab.parentElement.style.padding = '4px';
     }
   },
-  methods:{
-    changeDark(){
+  methods: {
+    changeDark() {
       this.isDark = !this.isDark;
       this.$q.dark.set(this.isDark);
     },
-    handleClick(node){
-      // let id;
-      // let pathArr = node.id.split('\.');
-      // pathArr=[];
-      // let treeArr = this.fileTree;
-      // while(pathArr.length!==0&&treeArr!==undefined&&treeArr.length!==0){
-      //   id = pathArr.pop();
-      //   treeArr.find(node=>node.id===id)
-      // }
-      this.updatePath(node.id);
+    selectedChange(path){
+      this.updatePath(path);
+    },
+    handleClick(node) {
+      console.log("handleClick")
     },
     toggleLeftDrawer() {
       this.leftDrawerOpen = !this.leftDrawerOpen
     },
-    crumbClick(evt, go){
-      evt.preventDefault();
-      console.log(evt)
+    crumbClick(path) {
+      //evt.preventDefault();
+      this.updatePath(path);
     },
-    updatePath(id){
-      let allPaths = this.getAllPaths(id);
+    updatePath(path) {
+      this.store.state.filePath=path;
+      let allPaths = this.getAllPaths(path);
       let rootCrumbNum = 0;
       let pathNum = 0;
       for (let i = 0; i < this.crumbs.length; i++) {
-        if(pathNum===allPaths.length){
+        if (pathNum === allPaths.length) {
           break;
         }
-        if(this.crumbs[i].id===allPaths[pathNum]){
+        if (this.crumbs[i].path === allPaths[pathNum]) {
           pathNum++;
-          rootCrumbNum=i;
-        }else{
+          rootCrumbNum = i;
+        } else {
           break;
         }
       }
       this.removeCrumbs(rootCrumbNum);
-      let treeNode = this.findFileTree(allPaths, allPaths[pathNum-1]);
-      for (let i = pathNum; i <allPaths.length; i++) {
+      let treeNode = this.findFileTree(allPaths, allPaths[pathNum - 1]);
+      for (let i = pathNum; i < allPaths.length; i++) {
         treeNode = this.findFileTreeOnCurrentLevel(treeNode, allPaths[i]);
-        this.crumbs.push({id:allPaths[i], label:treeNode.label});
+        this.crumbs.push({path: allPaths[i], label: treeNode.label});
       }
+      this.store.state.fileId=treeNode.id;
     },
     //移除该位置之后的元素
-    removeCrumbs(num){
-      while(this.crumbs.length > num+1){
+    removeCrumbs(num) {
+      while (this.crumbs.length > num + 1) {
         this.crumbs.pop();
       }
     },
-    myForEach(arr, func){
+    myForEach(arr, func) {
       try {
         arr.forEach(item => func(item))
       } catch (e) {
         if (e.message !== "LoopInterrupt") throw e
       }
     },
-    myForEachReturn(){
+    myForEachReturn() {
       throw new Error('LoopInterrupt');
     },
-    getAllPaths(id){
+    getAllPaths(id) {
       let paths = id.split("\.");
       let prePath = "";
       let allPaths = [];
-      paths.forEach(path=>{
-        if(prePath===""){
+      paths.forEach(path => {
+        if (prePath === "") {
           allPaths.push(path);
-        }else{
-          allPaths.push(prePath+"."+path);
+        } else {
+          allPaths.push(prePath + "." + path);
         }
-        prePath = allPaths[allPaths.length-1];
+        prePath = allPaths[allPaths.length - 1];
       })
       return allPaths;
     },
-    findFileTree(allPaths, id){
+    findFileTree(fullPaths, path) {
       let root = this.fileTree;
-      this.myForEach(allPaths, path=>{
-        root = this.findFileTreeOnCurrentLevel(root, path);
-        if(path===id){
+      this.myForEach(fullPaths, fullPath => {
+        root = this.findFileTreeOnCurrentLevel(root, fullPath);
+        if (fullPath === path) {
           this.myForEachReturn();
         }
       })
       return root;
     },
-    findFileTreeOnCurrentLevel(root, id){
+    findFileTreeOnCurrentLevel(root, path) {
       let children;
       let res;
-      if(root===this.fileTree){
+      if (root === this.fileTree) {
         children = toRaw(root);
-      }else{
+      } else {
         children = root.children;
       }
-      if(children===undefined||children===null){
+      if (children === undefined || children === null) {
         return null;
       }
-      children.forEach(child=>{
-        if(child.id===id){
+      children.forEach(child => {
+        if (child.path === path) {
           res = child;
-          return
         }
       })
       return res;
     },
-    onLazyLoad ({ node, key, done, fail }) {
+    onLazyLoad({node, key, done, fail}) {
       // call fail() if any error occurs
-      setTimeout(() => {
-        // simulate loading and setting an empty node
-        if (key.indexOf('Lazy load empty') > -1||node.id!=='0') {
-          done([])
-          return
-        }
-        const label = node.label
-        const id = node.id
-        done([
-          { label: `${label}.0` , id: `${id}.0`, handler: (node)=>{this.handleClick(node)}},
-          { label: `${label}.1`, id: `${id}.1`, lazy: true ,handler: (node)=>{this.handleClick(node)}},
-          {
-            label: `${label}.2`,
-            id: `${id}.2`,
-            handler: (node)=>{this.handleClick(node)},
-            children: [
-              { label: `${label}.2.0`, lazy: true, id: `${id}.2.0` ,handler: (node)=>{this.handleClick(node)}},
-              { label: `${label}.2.1`, lazy: true, id: `${id}.2.1` ,handler: (node)=>{this.handleClick(node)}}
-            ]
+      // if (key.indexOf('Lazy load empty') > -1) {
+      //   done([])
+      //   return
+      // }
+      request.get("/api/log-player/fileList?id=" + node.id).then(res => {
+        const path = node.path
+        let children = [];
+        let num = 0;
+        this.myForEach(res, fileInfo => {
+          if (fileInfo.type === 0) {
+            children.push({
+              id: fileInfo.id,
+              path: `${path}.${num}`,
+              label: fileInfo.fileName,
+              icon:'folder',
+              handler: (node) => {
+                this.handleClick(node)
+              },
+              lazy: true
+            });
           }
-        ],500)
+          num++;
+        })
+        done(children);
       })
-    },
-  },
-  setup() {
-    return {
-
     }
-  }
+  },
 })
 </script>
 <style>
-.my_arrow{
+.my_arrow {
   pointer-events: none;
 }
+
 body.body--dark {
   background-color: #1D1D1D;
 }

@@ -1,12 +1,4 @@
-/**
-* @FilePath /src/js/util/Request.js
-* @Description 
-* @Author wangxin
-* @Date 2023-04-03 15:15:31
-* @LastEditTime 2023-04-03 15:15:41
- */
-
-export default request
+export {request}
 
 import axios from 'axios'
 

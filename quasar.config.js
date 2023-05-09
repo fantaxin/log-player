@@ -79,20 +79,38 @@ module.exports = configure(function (ctx) {
       }
 
     },
-
-    // Full list of options: https://v2.quasar.dev/quasar-cli-webpack/quasar-config-js#Property%3A-devServer
     devServer: {
       server: {
         type: 'http'
       },
       port: 8085,
-      open: true // opens browser window automatically
+      open: true,// vue项目启动时自动打开浏览器
+      proxy: {
+        '/api': { // '/api'是代理标识，用于告诉node，url前面是/api的就是使用代理的
+          target: "http://localhost:8081", //目标地址，一般是指后台服务器地址
+          changeOrigin: true, //是否跨域
+          pathRewrite: { // pathRewrite 的作用是把实际Request Url中的'/api'用""代替
+            '^/api': ""
+          }
+        }
+      }
     },
+    // Full list of options: https://v2.quasar.dev/quasar-cli-webpack/quasar-config-js#Property%3A-devServer
+    // devServer: {
+    //   server: {
+    //     type: 'http'
+    //   },
+    //   port: 8085,
+    //   open: true // opens browser window automatically
+    // },
 
     // https://v2.quasar.dev/quasar-cli-webpack/quasar-config-js#Property%3A-framework
     framework: {
       config: {
-        dark: false
+        dark: false,
+        brand:{
+          // dark: '#3d3d3d'
+        }
       },
 
       // iconSet: 'material-icons', // Quasar icon set
