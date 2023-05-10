@@ -40,6 +40,7 @@
       >
         <q-tree
           :nodes="fileTree"
+          ref="treeRef"
           node-key="path"
           no-connectors
           selected-color="primary"
@@ -112,21 +113,10 @@ export default defineComponent({
     }
   },
   mounted() {
-    let arrows = document.getElementsByClassName('my_arrow');
-    for (let arrow of arrows) {
-      arrow.style.width = '24px';
-      arrow.parentElement.style.width = '24px';
-      arrow.parentElement.style.margin = '0px';
-      arrow.parentElement.style.padding = '0px';
-      arrow.parentElement.style.pointerEvents = 'none';
-    }
-    let tabs = document.getElementsByClassName('my_tab');
-    for (let tab of tabs) {
-      tab.children[0].style.fontSize = '15px';
-      tab.style.paddingTop = "6.8px";
-      tab.parentElement.style.margin = '0px';
-      tab.parentElement.style.padding = '4px';
-    }
+    this.setFileList(0, '0', (children)=>{
+      this.getTreeNodeByKey('0').children = children;
+      this.setExpanded('0', true);
+    })
   },
   methods: {
     changeDark() {
@@ -134,7 +124,7 @@ export default defineComponent({
       this.$q.dark.set(this.isDark);
     },
     selectedChange(path){
-      this.updatePath(path);
+      this.store.state.filePath=path;
     },
     handleClick(node) {
       console.log("handleClick")
@@ -144,10 +134,9 @@ export default defineComponent({
     },
     crumbClick(path) {
       //evt.preventDefault();
-      this.updatePath(path);
+      this.store.state.filePath=path;
     },
     updatePath(path) {
-      this.store.state.filePath=path;
       let allPaths = this.getAllPaths(path);
       let rootCrumbNum = 0;
       let pathNum = 0;
@@ -168,7 +157,7 @@ export default defineComponent({
         treeNode = this.findFileTreeOnCurrentLevel(treeNode, allPaths[i]);
         this.crumbs.push({path: allPaths[i], label: treeNode.label});
       }
-      this.store.state.fileId=treeNode.id;
+      this.store.state.folderId=treeNode.id;
     },
     //移除该位置之后的元素
     removeCrumbs(num) {
@@ -229,14 +218,17 @@ export default defineComponent({
       return res;
     },
     onLazyLoad({node, key, done, fail}) {
-      // call fail() if any error occurs
-      // if (key.indexOf('Lazy load empty') > -1) {
-      //   done([])
-      //   return
-      // }
-      request.get("/api/log-player/fileList?id=" + node.id).then(res => {
-        const path = node.path
-        let children = [];
+      if(node.children.length!==0){
+        done(node.children)
+        return;
+      }
+      this.setFileList(node.id, node.path, (children)=>{
+        done(children);
+      });
+    },
+    setFileList(id, path, func){
+      let children = [];
+      request.get("/api/log-player/fileList?id=" + id).then(res => {
         let num = 0;
         this.myForEach(res, fileInfo => {
           if (fileInfo.type === 0) {
@@ -253,17 +245,37 @@ export default defineComponent({
           }
           num++;
         })
-        done(children);
+        func(children);
       })
+    },
+    getTreeNodeByKey(path){
+      return this.$refs.treeRef.getNodeByKey(path);
+    },
+    setExpanded(path, state){
+      this.$refs.treeRef.setExpanded(path, state);
     }
   },
+  computed: {
+    filePath() {
+      return this.store.state.filePath;
+    }
+  },
+  watch: {
+    filePath(newData, oldData) {
+      if (newData === oldData) {
+        return;
+      }
+      let node = this.getTreeNodeByKey(newData);
+      this.setFileList(node.id, node.path, (children)=>{
+        node.children = children;
+      });
+      this.setExpanded(newData, true);
+      this.updatePath(newData);
+    }
+  }
 })
 </script>
 <style>
-.my_arrow {
-  pointer-events: none;
-}
-
 body.body--dark {
   background-color: #1D1D1D;
 }

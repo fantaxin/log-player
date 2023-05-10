@@ -10,10 +10,9 @@
     virtual-scroll
     class="my-sticky-table"
     no-data-label="I didn't find anything for you"
-    @row-dblclick="rowDbClick"
   >
     <template v-slot:top-left>
-      <q-btn color="primary">
+      <q-btn color="primary" @click="fileListBack">
         <q-icon name="reply"/>
       </q-btn>
 <!--      <div class="q-table__title">Treats</div>-->
@@ -30,23 +29,9 @@
         <q-icon name="fullscreen"/>
       </q-btn>
     </template>
-<!--    <template v-slot:top-row>-->
-<!--      <q-tr>-->
-<!--        <q-td colspan="100%">-->
-<!--          <q-btn color="primary">-->
-<!--            <q-icon name="reply"/>-->
-<!--          </q-btn>-->
-<!--        </q-td>-->
-<!--      </q-tr>-->
-<!--    </template>-->
-<!--    <template v-slot:body-cell-name="props">-->
-<!--      <q-td :props="props">-->
-
-<!--      </q-td>-->
-<!--    </template>-->
 
     <template v-slot:body="props">
-      <q-tr :props="props">
+      <q-tr :props="props" @dblclick="rowDbClick(props)">
         <q-td key="name" :props="props">
           <q-icon v-if="props.row.type===1" name="description" size="1.5em"/>
           <q-icon v-else name="folder" size="1.5em"/>
@@ -70,15 +55,6 @@
       </q-tr>
     </template>
 
-<!--    <template v-slot:body-cell-download="props">-->
-<!--      <q-td :props="props">-->
-<!--        <div v-if="props.value===1">-->
-<!--          <q-btn size="sm" round dense @click="downloadFile">-->
-<!--            <q-icon name="file_download" size="1.5em"/>-->
-<!--          </q-btn>-->
-<!--        </div>-->
-<!--      </q-td>-->
-<!--    </template>-->
     <template v-slot:bottom>
 
     </template>
@@ -95,6 +71,9 @@ export default {
   name: "FileList",
   props: {
     fileList: Array,
+  },
+  mounted() {
+    this.getFileList(this.folderId);
   },
   methods: {
     sizeFormat(val) {
@@ -119,8 +98,25 @@ export default {
     downloadFile(e) {
       console.log("downloadFile");
     },
-    rowDbClick(evt, row, index){
-
+    rowDbClick(props){
+      if(props.row.type===0){
+        this.store.state.folderId = props.row.id;
+        this.store.state.filePath = this.store.state.filePath+'.'+props.rowIndex;
+      }else{
+        //TODO: 双击文件播放
+      }
+    },
+    getFileList(id){
+      this.loading = true;
+      request.get("/api/log-player/fileList?id=" + id).then(res=>{
+        this.rows = res;
+      }).finally(reason => {
+        this.loading = false;
+      })
+    },
+    fileListBack(){
+      let paths = this.store.state.filePath.split('\.');
+      this.store.state.filePath = paths.slice(0,paths.length-1).join('.')
     }
   },
   data() {
@@ -134,25 +130,23 @@ export default {
         {name: 'size', align: 'right', label: '大小', field: 'size', format: this.sizeFormat, sortable: true, style: 'width:10px;padding-right:5px'},
         {name: 'download', align: 'center', label: '', field: 'type', style: 'width:20px;padding-left:15px;padding-right:20px'},
       ],
-      rows: []
+      rows: [],
+      dbRowIndex: 0,
     }
   },
   computed: {
-    fileId() {
-      return this.store.state.fileId;
+    folderId() {
+      return this.store.state.folderId;
     }
   },
   watch: {
-    fileId(newData, oldData) {
+    folderId(newData, oldData) {
       this.loading = true;
       if (newData === oldData && this.rows.length !== 0) {
         this.loading = false;
         return;
       }
-      request.get("/api/log-player/fileList?id=" + newData).then(res=>{
-        this.rows = res;
-        this.loading = false;
-      })
+      this.getFileList(newData);
     }
   }
 }

@@ -20,7 +20,7 @@ export default store(function (/* { ssrContext } */) {
         playState: PlayState.NOTUSED,
         isNight: false,
         isFull: false,
-        fileId: 0,
+        folderId: 0,
         filePath: '0',
       }
 
