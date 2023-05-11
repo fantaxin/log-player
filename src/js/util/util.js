@@ -4,6 +4,21 @@ import { AgentState } from "src/js/game/state/AgentState";
 import { Frame } from "src/js/game/state/Frame";
 import { GameMode } from "src/js/util/Constants";
 
+function isNull(obj){
+  return obj === undefined || obj === null;
+}
+function isNotNull(obj){
+  return !isNull();
+}
+function isEmpty(arr){
+  if(isNotNull(arr) && arr instanceof []){
+    return arr.length === 0;
+  }
+  return false;
+}
+function isNotEmpty(arr){
+  return !isEmpty(arr);
+}
 function timeFormat(val) {
     let h = Math.floor(val / 3600);
     let m = Math.floor((val % 3600) / 60);
@@ -77,4 +92,4 @@ function frames(num = 104) {
     }
     return frames;
 }
-export { timeFormat, frames, isRight, isLeft, AngleY, numberFormat }
+export { timeFormat, frames, isRight, isLeft, AngleY, numberFormat, isEmpty, isNull, isNotNull, isNotEmpty }

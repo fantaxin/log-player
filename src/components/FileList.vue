@@ -48,7 +48,7 @@
           {{ sizeFormat(props.row.size) }}
         </q-td>
         <q-td key="download" :props="props">
-          <q-btn v-if="props.row.type===1" size="sm" round dense @click="downloadFile">
+          <q-btn v-if="props.row.type===1" size="sm" round dense @click="downloadFile(props.row.id)">
             <q-icon name="file_download" size="1.5em"/>
           </q-btn>
         </q-td>
@@ -65,7 +65,6 @@
 
 import {useStore} from "vuex";
 import {request} from "src/js/util/Request";
-import {ref} from "vue";
 
 export default {
   name: "FileList",
@@ -95,8 +94,11 @@ export default {
         return "文件";
       }
     },
-    downloadFile(e) {
-      console.log("downloadFile");
+    downloadFile(id) {
+      let a = document.createElement('a');
+      a.href = "/api/downloadFile?id="+id;
+      a.click();
+      console.log("downloadfile")
     },
     rowDbClick(props){
       if(props.row.type===0){
