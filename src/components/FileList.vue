@@ -65,6 +65,7 @@
 
 import {useStore} from "vuex";
 import {request} from "src/js/util/Request";
+import * as Util from "src/js/util/util";
 
 export default {
   name: "FileList",
@@ -72,7 +73,7 @@ export default {
     fileList: Array,
   },
   mounted() {
-    this.getFileList(this.folderId);
+    //this.getFileList(this.folderId);
   },
   methods: {
     sizeFormat(val) {
@@ -117,8 +118,8 @@ export default {
       })
     },
     fileListBack(){
-      let paths = this.store.state.filePath.split('\.');
-      this.store.state.filePath = paths.slice(0,paths.length-1).join('.')
+      //let paths = this.store.state.filePath.split('\.');
+      //this.store.state.filePath = paths.slice(0,paths.length-1).join('.')
     }
   },
   data() {
@@ -137,19 +138,40 @@ export default {
     }
   },
   computed: {
-    folderId() {
-      return this.store.state.folderId;
+    fileRoot(){
+      return this.store.state.fileRoot;
     }
+    // folderId() {
+    //   return this.store.state.folderId;
+    // }
   },
   watch: {
-    folderId(newData, oldData) {
-      this.loading = true;
-      if (newData === oldData && this.rows.length !== 0) {
-        this.loading = false;
+    fileRoot(newData, oldData){
+      if(newData===oldData){
         return;
       }
-      this.getFileList(newData);
+      if(Util.isNull(newData)){
+        return;
+      }
+      if(Util.isEmpty(newData.children)){
+        this.loading = true;
+        request.get("/api/log-player/fileList?id=" + newData.id).then(res=>{
+          this.rows = res;
+        }).finally(reason => {
+          this.loading = false;
+        })
+      }else{
+        this.rows = newData.children;
+      }
     }
+    // folderId(newData, oldData) {
+    //   this.loading = true;
+    //   if (newData === oldData && this.rows.length !== 0) {
+    //     this.loading = false;
+    //     return;
+    //   }
+    //   this.getFileList(newData);
+    // }
   }
 }
 </script>

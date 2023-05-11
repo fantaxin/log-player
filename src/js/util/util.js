@@ -11,7 +11,7 @@ function isNotNull(obj){
   return !isNull();
 }
 function isEmpty(arr){
-  if(isNotNull(arr) && arr instanceof []){
+  if(isNotNull(arr)){
     return arr.length === 0;
   }
   return false;

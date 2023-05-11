@@ -1,11 +1,9 @@
 const routes = [
   {
-    path: '/',
+    path: '/:url(.*)*',
     component: () => import('layouts/MainLayout.vue'),
     children: [
       { path: '/a', component: () => import('pages/IndexPage.vue') },
-      { path: '/file/:url(.*)*', component: () => import('components/FileList.vue') },
-      { path: '/player/:url(.*)*', component: () => import('components/PlayerMedia.vue') },
     ]
   },
 

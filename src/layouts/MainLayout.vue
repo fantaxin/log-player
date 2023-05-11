@@ -12,19 +12,16 @@
             @click="toggleLeftDrawer"
           />
 
-          <q-toolbar-title shrink>
-            Log Player
-          </q-toolbar-title>
+          <q-toolbar-title shrink>Log Player</q-toolbar-title>
 
           <q-breadcrumbs class="text-secondary" active-color="white" separator-color="grey" style="font-size: 16px">
-            <q-breadcrumbs-el v-for="crumb in crumbs" :key="crumb.treePath" :label="crumb.label"
-                              :to="'/file/'+url"/>
+            <q-breadcrumbs-el v-for="crumb in crumbs" :key="crumb.url" :label="crumb.label" :to="crumb.url"/>
           </q-breadcrumbs>
 
           <q-space/>
           <q-tabs v-model="contentTab" align="right">
-            <q-route-tab name="file-tab" label="文件列表" :to="'/file/'+url"/>
-            <q-route-tab name="media-tab" label="播放器" :to="'/player/'+url"/>
+            <q-route-tab name="file-tab" label="文件列表"/>
+            <q-route-tab name="media-tab" label="播放器"/>
           </q-tabs>
           <q-btn @click="changeDark">
             <q-icon v-if="isDark" name="light_mode"/>
@@ -40,14 +37,15 @@
         bordered
       >
         <q-tree
-          :nodes="fileTree"
+          :nodes="fileTree.children"
           ref="treeRef"
-          node-key="path"
+          node-key="url"
           no-connectors
           selected-color="primary"
           @lazy-load="onLazyLoad"
+          v-model:expanded="expandedKeys"
           @update:selected="selectedChange"
-          v-model:selected="store.state.filePath"
+          v-model:selected="selectedKey"
         />
       </q-drawer>
 
@@ -55,18 +53,18 @@
         <q-card>
           <q-tab-panels v-model="contentTab" animated>
             <q-tab-panel name="file-tab">
-              <div v-if="contentTab==='file-tab'" >
-                <FileList/>
+              <div v-if="contentTab==='file-tab'">
+<!--                <FileList/>-->
               </div>
             </q-tab-panel>
             <q-tab-panel name="media-tab">
-              <div v-if="contentTab==='media-tab'" >
+              <div v-if="contentTab==='media-tab'">
                 <PlayerMedia/>
               </div>
             </q-tab-panel>
           </q-tab-panels>
         </q-card>
-<!--        <router-view/>-->
+        <!--        <router-view/>-->
       </q-page-container>
     </q-layout>
   </div>
@@ -75,8 +73,10 @@
 <script>
 import {defineComponent, ref, toRaw} from 'vue'
 import {useQuasar} from 'quasar'
+import {useRouter, useRoute} from 'vue-router'
 import PlayerMedia from 'components/PlayerMedia.vue'
 import FileList from 'components/FileList.vue'
+import ErrorNotFound from 'pages/ErrorNotFound.vue'
 import {request} from "src/js/util/Request";
 import {useStore} from "vuex";
 import * as Util from "src/js/util/util";
@@ -84,63 +84,90 @@ import * as Util from "src/js/util/util";
 export default defineComponent({
   name: 'MainLayout',
   components: {
-    FileList,
+    //FileList,
     PlayerMedia
   },
   data() {
     return {
+      expandedKeys:[],
       $q: useQuasar(),
+      router: useRouter(),
+      route: useRoute(),
       isDark: false,
       leftDrawerOpen: true,
       store: useStore(),
       contentTab: 'file-tab',
-      tree_selected: ref(0),
-      crumbs: [
-        {path: '0', label: 'log'}],
-      fileTree: [
-        {
-          path: '0',
-          label: 'log',
-          icon: 'folder',
-          handler: (node) => {
-            this.handleClick(node)
-          },
-          lazy: true,
-          id: 0,
-          type: 0,
-          url:'/log',
-          children: []
-        }
-      ],
+      selectedKey: "",
+      crumbs: [],
+      fileTree: {
+        id: -1,
+        url: "",
+        children: [
+        ]
+      },
     }
   },
-  mounted() {
-    this.fileTree = [];
-
-    this.setFileList(0, '0', (children) => {
-      this.getTreeNodeByKey('0').children = children;
-      this.setExpanded('0', true);
-    })
+  async mounted() {
+    if (this.route.params.url === "") {
+      await this.router.push("/log")
+      await this.urlChanged(['log']);
+    } else {
+      let allUrl = '/' + this.route.params.url.join('/');
+      try {
+        await this.urlChanged(this.route.params.url);
+      } catch (e) {
+        if (e.message === 'PageNotFound') {
+          this.router.addRoute({path: allUrl, name: allUrl, component: ErrorNotFound})
+          await this.router.push(allUrl);
+          this.router.removeRoute(allUrl)
+        } else {
+          throw e;
+        }
+      }
+    }
+    //document.getElementsByClassName("q-tree__node--link")[0].click();
   },
   methods: {
-    updateFileTree(url){
-      let paths = url.split('\\');
-      let root = this.fileTree;
-      paths.forEach(path=>{
-        root = this.findFileTreeChild(root, path);
-        if(Util.isNull(root)){
-
+    async urlChanged(url) {
+      let paths = url;
+      let name = paths[paths.length - 1];
+      if (name.split('\.').length === 2) {
+        //todo:是文件的时候怎么办
+      }
+      let roots = [];
+      let root = toRaw(this.fileTree);
+      //更新并获取文件树的路径
+      for (const path of paths) {
+        if (Util.isEmpty(path)) {
+          continue;
         }
+        if (root.children.length === 0) {
+          await this.asyncGetChildren(root);
+        }
+        root = this.findFileTreeChild(root, path);
+        //this.handleClickUrl("/log");
+        if (Util.isNull(root)) {
+          //todo: 报错
+          //this.pageNotFound();
+        }
+        roots.push(root);
+        this.expandedKeys.push(root.url);
+      }
+      this.selectedKey = root.url;
+      await this.asyncGetChildren(root);
+      //更新面包屑
+      this.crumbs = [];
+      roots.forEach(root => {
+        this.crumbs.push({url: root.url, label: root.label})
       })
+      //更新文件列表
+      this.store.state.fileRoot = root;
     },
+
     findFileTreeChild(root, path) {
       let children;
       let res;
-      if (root === this.fileTree) {
-        children = toRaw(root);
-      } else {
-        children = root.children;
-      }
+      children = root.children;
       if (Util.isEmpty(children)) {
         return null;
       }
@@ -151,78 +178,29 @@ export default defineComponent({
       })
       return res;
     },
-
-
-
-
-
-    findFileTreeOnCurrentLevel(root, path) {
-      let children;
-      let res;
-      if (root === this.fileTree) {
-        children = toRaw(root);
-      } else {
-        children = root.children;
-      }
-      if (children === undefined || children === null) {
-        return null;
-      }
-      children.forEach(child => {
-        if (child.path === path) {
-          res = child;
-        }
-      })
-      return res;
-    },
-
-
-
-
     changeDark() {
       this.isDark = !this.isDark;
       this.$q.dark.set(this.isDark);
     },
-    selectedChange(path){
-      this.store.state.filePath=path;
+    selectedChange(path) {
+      this.store.state.filePath = path;
+    },
+    handleClickUrl(url) {
+      //this.router.push(node.url);
+      this.selectedKey = url;
+      this.setExpanded(url, true);
     },
     handleClick(node) {
-      console.log("handleClick")
+      //this.router.push(node.url);
+      this.selectedKey = node.url;
+      this.setExpanded(node.url, true);
     },
     toggleLeftDrawer() {
-      this.leftDrawerOpen = !this.leftDrawerOpen
+      this.leftDrawerOpen = !this.leftDrawerOpen;
     },
     crumbClick(path) {
       //evt.preventDefault();
-      this.store.state.filePath=path;
-    },
-    updatePath(path) {
-      let allPaths = this.getAllPaths(path);
-      let rootCrumbNum = 0;
-      let pathNum = 0;
-      for (let i = 0; i < this.crumbs.length; i++) {
-        if (pathNum === allPaths.length) {
-          break;
-        }
-        if (this.crumbs[i].path === allPaths[pathNum]) {
-          pathNum++;
-          rootCrumbNum = i;
-        } else {
-          break;
-        }
-      }
-      this.removeCrumbs(rootCrumbNum);
-      let treeNode = this.findFileTree(allPaths, allPaths[pathNum - 1]);
-      for (let i = pathNum; i < allPaths.length; i++) {
-        treeNode = this.findFileTreeOnCurrentLevel(treeNode, allPaths[i]);
-        this.crumbs.push({path: allPaths[i], label: treeNode.label});
-      }
-      this.store.state.folderId = treeNode.id;
-    },
-    //移除该位置之后的元素
-    removeCrumbs(num) {
-      while (this.crumbs.length > num + 1) {
-        this.crumbs.pop();
-      }
+      this.store.state.filePath = path;
     },
     myForEach(arr, func) {
       try {
@@ -231,58 +209,76 @@ export default defineComponent({
         if (e.message !== "LoopInterrupt") throw e
       }
     },
+    updateUrl(func, params) {
+      try {
+        Reflect.apply(func, this, params)
+      } catch (e) {
+        if (e.message === 'PageNotFound') {
+          this.$router.addRoute({path: newData, component: ErrorNotFound})
+          this.$router.push(newData);
+        } else {
+          throw e;
+        }
+      }
+    },
+    pageNotFound() {
+      throw new Error('PageNotFound');
+    },
     myForEachReturn() {
       throw new Error('LoopInterrupt');
     },
-    getAllPaths(id) {
-      let paths = id.split("\.");
-      let prePath = "";
-      let allPaths = [];
-      paths.forEach(path => {
-        if (prePath === "") {
-          allPaths.push(path);
-        } else {
-          allPaths.push(prePath + "." + path);
-        }
-        prePath = allPaths[allPaths.length - 1];
-      })
-      return allPaths;
-    },
-    findFileTree(fullPaths, path) {
-      let root = this.fileTree;
-      this.myForEach(fullPaths, fullPath => {
-        root = this.findFileTreeOnCurrentLevel(root, fullPath);
-        if (fullPath === path) {
-          this.myForEachReturn();
-        }
-      })
-      return root;
-    },
-
     onLazyLoad({node, key, done, fail}) {
       if (node.children.length !== 0) {
         done(node.children)
         return;
       }
-      this.setFileList(node.id, node.path, (children) => {
+      this.getChildren(node.id, (children) => {
         done(children);
       });
     },
-    setFileList(id, path, func){
+    async asyncGetChildren(root, that) {
+      let children = [];
+      let res = await request.get("/api/log-player/fileList?id=" + root.id);
+      for (const fileInfo of res) {
+        if (fileInfo.type === 0) {
+          children.push({
+            label: fileInfo.fileName,
+            icon: 'folder',
+            handler: (node) => {
+              this.handleClick(node)
+            },
+            lazy: false,
+            id: fileInfo.id,
+            type: fileInfo.type,
+            url: fileInfo.url,
+            children: []
+          });
+        }
+      }
+      root.children = children;
+      //root.lazy = false;
+      //that.setExpanded(root.url, true);
+      //node.expand();
+      //this.tree_selected = root.url;
+      //this.setExpanded(root.url, true);
+    },
+    getChildren(id, func) {
       let children = [];
       request.get("/api/log-player/fileList?id=" + id).then(res => {
         let num = 0;
         this.myForEach(res, fileInfo => {
           if (fileInfo.type === 0) {
             children.push({
-              id: fileInfo.id,
-              path: `${path}.${num}`,
               label: fileInfo.fileName,
               icon: 'folder',
               handler: (node) => {
                 this.handleClick(node)
               },
-              lazy: true
+              lazy: false,
+              id: fileInfo.id,
+              type: fileInfo.type,
+              url: fileInfo.url,
+              children: []
             });
           }
           num++;
@@ -290,19 +286,16 @@ export default defineComponent({
         func(children);
       })
     },
-    getTreeNodeByKey(path){
-      return this.$refs.treeRef.getNodeByKey(path);
+    getTreeNodeByKey(key) {
+      return this.$refs.treeRef.getNodeByKey(key);
     },
-    setExpanded(path, state){
-      this.$refs.treeRef.setExpanded(path, state);
+    setExpanded(key, state) {
+      this.$refs.treeRef.setExpanded(key, state);
     }
   },
   computed: {
-    // filePath() {
-    //   return this.store.state.filePath;
-    // },
-    url(){
-      return this.$route.params.url;
+    url() {
+      return this.route.params.url;
     }
   },
   watch: {
@@ -310,24 +303,17 @@ export default defineComponent({
       if (newData === oldData) {
         return;
       }
-      let node = this.getTreeNodeByKey(newData);
-      this.setFileList(node.id, node.path, (children) => {
-        node.children = children;
-      });
-      this.setExpanded(newData, true);
-      this.updatePath(newData);
+      try {
+        this.urlChanged(newData);
+      } catch (e) {
+        if (e.message === 'PageNotFound') {
+          this.$router.addRoute({path: newData, component: ErrorNotFound})
+          this.$router.push(newData);
+        } else {
+          throw e;
+        }
+      }
     },
-    // filePath(newData, oldData) {
-    //   if (newData === oldData) {
-    //     return;
-    //   }
-    //   let node = this.getTreeNodeByKey(newData);
-    //   this.setFileList(node.id, node.path, (children) => {
-    //     node.children = children;
-    //   });
-    //   this.setExpanded(newData, true);
-    //   this.updatePath(newData);
-    // }
   }
 })
 </script>
