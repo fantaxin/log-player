@@ -22,7 +22,7 @@ export default store(function (/* { ssrContext } */) {
         isFull: false,
         folderId: 0,
         filePath: '0',
-        fileRoot: null,
+        rootFile: null,
         loadFinish: true,
       }
 

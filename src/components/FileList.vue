@@ -15,7 +15,7 @@
       <q-btn color="primary" @click="fileListBack">
         <q-icon name="reply"/>
       </q-btn>
-<!--      <div class="q-table__title">Treats</div>-->
+      <!--      <div class="q-table__title">Treats</div>-->
     </template>
     <template v-slot:top-right>
       <q-btn
@@ -23,7 +23,6 @@
         icon-right="archive"
         label="Export to csv"
         no-caps
-        @click="exportTable"
       />
       <q-btn flat round dense class="q-ml-md">
         <q-icon name="fullscreen"/>
@@ -66,6 +65,7 @@
 import {useStore} from "vuex";
 import {request} from "src/js/util/Request";
 import * as Util from "src/js/util/util";
+import {useRoute, useRouter} from "vue-router";
 
 export default {
   name: "FileList",
@@ -73,11 +73,11 @@ export default {
     fileList: Array,
   },
   mounted() {
-    //this.getFileList(this.folderId);
+    this.getFileList();
   },
   methods: {
     sizeFormat(val) {
-      if(val===undefined||val===null||val===0){
+      if (val === undefined || val === null || val === 0) {
         return "-";
       }
       let size = val / 1024;
@@ -88,91 +88,98 @@ export default {
       }
       return size.toFixed(1) + (isKb ? " KB" : " MB");
     },
-    typeFormat(val){
-      if(val===0){
+    typeFormat(val) {
+      if (val === 0) {
         return "文件夹";
-      }else{
+      } else {
         return "文件";
       }
     },
     downloadFile(id) {
       let a = document.createElement('a');
-      a.href = "/api/downloadFile?id="+id;
+      a.href = "/api/log-player/downloadFile?id=" + id;
       a.click();
       console.log("downloadfile")
     },
-    rowDbClick(props){
-      if(props.row.type===0){
-        this.store.state.folderId = props.row.id;
-        this.store.state.filePath = this.store.state.filePath+'.'+props.rowIndex;
-      }else{
+    rowDbClick(props) {
+      if (props.row.type === 0) {
+        this.router.push(props.row.url);
+      } else {
         //TODO: 双击文件播放
       }
     },
-    getFileList(id){
+    fileListBack() {
+      let paths = this.route.params.url;
+      let url = "/" + paths.slice(0, paths.length - 1).join('/')
+      this.router.push(url);
+    },
+    getFileList() {
       this.loading = true;
-      request.get("/api/log-player/fileList?id=" + id).then(res=>{
+      request.get("/api/log-player/fileListUrl?url=" + "%2F"+this.route.params.url.join('%2F')).then(res => {
         this.rows = res;
       }).finally(reason => {
         this.loading = false;
       })
-    },
-    fileListBack(){
-      //let paths = this.store.state.filePath.split('\.');
-      //this.store.state.filePath = paths.slice(0,paths.length-1).join('.')
     }
   },
   data() {
     return {
       store: useStore(),
+      router: useRouter(),
+      route: useRoute(),
       loading: false,
       columns: [
         {name: 'name', align: 'left', label: '文件名', field: 'fileName', required: true, sortable: true},
         {name: 'date', align: 'center', label: '修改日期', field: 'createTime', sortable: true, style: 'width:20px'},
         {name: 'type', align: 'center', label: '文件类型', field: 'type', format: this.typeFormat, style: 'width:20px'},
-        {name: 'size', align: 'right', label: '大小', field: 'size', format: this.sizeFormat, sortable: true, style: 'width:10px;padding-right:5px'},
-        {name: 'download', align: 'center', label: '', field: 'type', style: 'width:20px;padding-left:15px;padding-right:20px'},
+        {
+          name: 'size',
+          align: 'right',
+          label: '大小',
+          field: 'size',
+          format: this.sizeFormat,
+          sortable: true,
+          style: 'width:10px;padding-right:5px'
+        },
+        {
+          name: 'download',
+          align: 'center',
+          label: '',
+          field: 'type',
+          style: 'width:20px;padding-left:15px;padding-right:20px'
+        },
       ],
       rows: [],
       dbRowIndex: 0,
     }
   },
   computed: {
-    fileRoot(){
-      return this.store.state.fileRoot;
+    // rootFile(){
+    //   return this.store.state.rootFile;
+    // },
+    rootFile() {
+      return this.store.state.rootFile;
     }
-    // folderId() {
-    //   return this.store.state.folderId;
-    // }
   },
   watch: {
-    fileRoot(newData, oldData){
-      if(newData===oldData){
-        return;
-      }
-      if(Util.isNull(newData)){
-        return;
-      }
-      if(Util.isEmpty(newData.children)){
+    rootFile(newData, oldData) {
+      // if(newData===oldData){
+      //   return;
+      // }
+      // if(Util.isNull(newData)){
+      //   return;
+      // }
+      this.rows = newData.children;
+      if (this.rows.length === 0) {
         this.loading = true;
-        request.get("/api/log-player/fileList?id=" + newData.id).then(res=>{
+        request.get("/api/log-player/fileList?id=" + newData.id).then(res => {
           this.rows = res;
         }).finally(reason => {
           this.loading = false;
         })
-      }else{
-        this.rows = newData.children;
       }
     }
-    // folderId(newData, oldData) {
-    //   this.loading = true;
-    //   if (newData === oldData && this.rows.length !== 0) {
-    //     this.loading = false;
-    //     return;
-    //   }
-    //   this.getFileList(newData);
-    // }
-  }
+  },
 }
 </script>
 
@@ -195,10 +202,12 @@ export default {
   thead tr th
     position: sticky
     z-index: 1
+
   thead tr:first-child th
     top: 0
 
   /* this is when the loading indicator appears */
+
   &.q-table--loading thead tr:last-child th
     /* height of all previous header rows */
     top: 48px

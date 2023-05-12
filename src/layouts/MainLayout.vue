@@ -9,7 +9,7 @@
             round
             icon="menu"
             aria-label="Menu"
-            @click="toggleLeftDrawer"
+            @click="toggleTree"
           />
 
           <q-toolbar-title shrink>Log Player</q-toolbar-title>
@@ -20,14 +20,13 @@
 
           <q-space/>
           <q-tabs v-model="contentTab" align="right">
-            <q-route-tab name="file-tab" label="文件列表"/>
-            <q-route-tab name="media-tab" label="播放器"/>
+            <q-tab name="file-tab" label="文件列表"/>
+            <q-tab name="media-tab" label="播放器"/>
           </q-tabs>
           <q-btn @click="changeDark">
             <q-icon v-if="isDark" name="light_mode"/>
             <q-icon v-else name="dark_mode"/>
           </q-btn>
-          <!--          <div>Quasar v{{ $q.version }}</div>-->
         </q-toolbar>
       </q-header>
 
@@ -42,9 +41,9 @@
           node-key="url"
           no-connectors
           selected-color="primary"
-          @lazy-load="onLazyLoad"
+          @lazy-load="treeLazyLoad"
           v-model:expanded="expandedKeys"
-          @update:selected="selectedChange"
+          @update:selected="treeSelectedChange"
           v-model:selected="selectedKey"
         />
       </q-drawer>
@@ -53,14 +52,10 @@
         <q-card>
           <q-tab-panels v-model="contentTab" animated>
             <q-tab-panel name="file-tab">
-              <div v-if="contentTab==='file-tab'">
-<!--                <FileList/>-->
-              </div>
+                <FileList/>
             </q-tab-panel>
             <q-tab-panel name="media-tab">
-              <div v-if="contentTab==='media-tab'">
                 <PlayerMedia/>
-              </div>
             </q-tab-panel>
           </q-tab-panels>
         </q-card>
@@ -84,51 +79,48 @@ import * as Util from "src/js/util/util";
 export default defineComponent({
   name: 'MainLayout',
   components: {
-    //FileList,
+    FileList,
     PlayerMedia
   },
   data() {
     return {
-      expandedKeys:[],
       $q: useQuasar(),
       router: useRouter(),
       route: useRoute(),
+      store: useStore(),
       isDark: false,
       leftDrawerOpen: true,
-      store: useStore(),
+      firstClick: true,
       contentTab: 'file-tab',
       selectedKey: "",
+      expandedKeys:[],
+      expandedKeysSet:new Set(),
       crumbs: [],
-      fileTree: {
-        id: -1,
-        url: "",
-        children: [
-        ]
-      },
+      fileTree: {id: -1, url: "", children: []},
     }
   },
   async mounted() {
     if (this.route.params.url === "") {
       await this.router.push("/log")
-      await this.urlChanged(['log']);
+      await this.loadOnFirst(['log']);
     } else {
       let allUrl = '/' + this.route.params.url.join('/');
       try {
-        await this.urlChanged(this.route.params.url);
+        await this.loadOnFirst(this.route.params.url);
       } catch (e) {
         if (e.message === 'PageNotFound') {
-          this.router.addRoute({path: allUrl, name: allUrl, component: ErrorNotFound})
-          await this.router.push(allUrl);
-          this.router.removeRoute(allUrl)
+          this.pageNotFound(allUrl);
+          // this.router.addRoute({path: allUrl, name: allUrl, component: ErrorNotFound})
+          // await this.router.push(allUrl);
+          // this.router.removeRoute(allUrl)
         } else {
           throw e;
         }
       }
     }
-    //document.getElementsByClassName("q-tree__node--link")[0].click();
   },
   methods: {
-    async urlChanged(url) {
+    async loadOnFirst(url) {
       let paths = url;
       let name = paths[paths.length - 1];
       if (name.split('\.').length === 2) {
@@ -142,29 +134,43 @@ export default defineComponent({
           continue;
         }
         if (root.children.length === 0) {
-          await this.asyncGetChildren(root);
+          await this.getTreeChildrenOnLoad(root, path);
         }
-        root = this.findFileTreeChild(root, path);
-        //this.handleClickUrl("/log");
+        root = this.findTreeChild(root, path);
         if (Util.isNull(root)) {
-          //todo: 报错
-          //this.pageNotFound();
+          this.throwPageNotFound();
         }
         roots.push(root);
-        this.expandedKeys.push(root.url);
       }
-      this.selectedKey = root.url;
-      await this.asyncGetChildren(root);
+      await this.getTreeChildrenOnLoad(root, "");
       //更新面包屑
-      this.crumbs = [];
-      roots.forEach(root => {
-        this.crumbs.push({url: root.url, label: root.label})
-      })
+      this.crumbsUpdate(paths);
+      //this.selectedKey = root.url;
       //更新文件列表
-      this.store.state.fileRoot = root;
+      //this.store.state.folderId = root.id;
+      this.store.state.rootFile = root;
     },
-
-    findFileTreeChild(root, path) {
+    crumbsUpdate(paths){
+      this.crumbs = [];
+      //this.expandedKeys = [];
+      let allPath = "";
+      let popNum = this.expandedKeys.length+paths.length-5;
+      while(popNum>0){
+        this.expandedKeysSet.delete(this.expandedKeys.pop());
+        popNum--;
+      }
+      paths.forEach(path => {
+        allPath += "/" + path;
+        this.crumbs.push({url: allPath, label: path})
+        if(!this.expandedKeysSet.has(allPath)){
+          this.expandedKeysSet.add(allPath);
+          this.expandedKeys.push(allPath);
+        }
+      })
+      this.selectedKey = allPath;
+      this.store.state.rootFile = this.getTreeNodeByKey(allPath);
+    },
+    findTreeChild(root, path) {
       let children;
       let res;
       children = root.children;
@@ -182,25 +188,46 @@ export default defineComponent({
       this.isDark = !this.isDark;
       this.$q.dark.set(this.isDark);
     },
-    selectedChange(path) {
+    treeSelectedChange(path) {
       this.store.state.filePath = path;
     },
-    handleClickUrl(url) {
-      //this.router.push(node.url);
-      this.selectedKey = url;
-      this.setExpanded(url, true);
+    treeNodeClick(node) {
+      // 第一次点击时，将所有在加载阶段加载的node都设置为懒加载
+      if(this.firstClick){
+        let queue = [];
+        queue.push(this.fileTree);
+        while(queue.length!==0){
+          let node = queue.pop();
+          node.lazy = true;
+          node.children.forEach(child=>{
+            queue.push(child);
+          })
+        }
+        this.firstClick = false;
+      }
+      //更新url
+      this.router.push(node.url);
+      //将该node设置为选中并打开
+      //this.selectAndExpandedTreeNode(node);
+      this.setTreeExpanded(node.url, true);
+      //更新文件列表
+      // let root = {children: node.children};
+      //this.store.state.folderId = node.id;
     },
-    handleClick(node) {
-      //this.router.push(node.url);
+    selectAndExpandedTreeNode(node){
       this.selectedKey = node.url;
-      this.setExpanded(node.url, true);
+      this.setTreeExpanded(node.url, true);
     },
-    toggleLeftDrawer() {
+    toggleTree() {
       this.leftDrawerOpen = !this.leftDrawerOpen;
     },
-    crumbClick(path) {
-      //evt.preventDefault();
-      this.store.state.filePath = path;
+    throwPageNotFound() {
+      throw new Error('PageNotFound');
+    },
+    pageNotFound(url){
+      this.router.addRoute({path: url, name:url, component: ErrorNotFound})
+      this.router.push(url);
+      this.router.removeRoute(url);
     },
     myForEach(arr, func) {
       try {
@@ -209,60 +236,19 @@ export default defineComponent({
         if (e.message !== "LoopInterrupt") throw e
       }
     },
-    updateUrl(func, params) {
-      try {
-        Reflect.apply(func, this, params)
-      } catch (e) {
-        if (e.message === 'PageNotFound') {
-          this.$router.addRoute({path: newData, component: ErrorNotFound})
-          this.$router.push(newData);
-        } else {
-          throw e;
-        }
-      }
-    },
-    pageNotFound() {
-      throw new Error('PageNotFound');
-    },
     myForEachReturn() {
       throw new Error('LoopInterrupt');
     },
-    onLazyLoad({node, key, done, fail}) {
+    treeLazyLoad({node, done}) {
       if (node.children.length !== 0) {
         done(node.children)
         return;
       }
-      this.getChildren(node.id, (children) => {
+      this.getTreeChildren(node.id, (children) => {
         done(children);
       });
     },
-    async asyncGetChildren(root, that) {
-      let children = [];
-      let res = await request.get("/api/log-player/fileList?id=" + root.id);
-      for (const fileInfo of res) {
-        if (fileInfo.type === 0) {
-          children.push({
-            label: fileInfo.fileName,
-            icon: 'folder',
-            handler: (node) => {
-              this.handleClick(node)
-            },
-            lazy: false,
-            id: fileInfo.id,
-            type: fileInfo.type,
-            url: fileInfo.url,
-            children: []
-          });
-        }
-      }
-      root.children = children;
-      //root.lazy = false;
-      //that.setExpanded(root.url, true);
-      //node.expand();
-      //this.tree_selected = root.url;
-      //this.setExpanded(root.url, true);
-    },
-    getChildren(id, func) {
+    getTreeChildren(id, func) {
       let children = [];
       request.get("/api/log-player/fileList?id=" + id).then(res => {
         let num = 0;
@@ -272,12 +258,13 @@ export default defineComponent({
               label: fileInfo.fileName,
               icon: 'folder',
               handler: (node) => {
-                this.handleClick(node)
+                this.treeNodeClick(node)
               },
-              lazy: false,
+              lazy: true,
               id: fileInfo.id,
               type: fileInfo.type,
               url: fileInfo.url,
+              fileName: fileInfo.fileName,
               children: []
             });
           }
@@ -286,10 +273,36 @@ export default defineComponent({
         func(children);
       })
     },
+    async getTreeChildrenOnLoad(root, path) {
+      let children = [];
+      let res = await request.get("/api/log-player/fileList?id=" + root.id);
+      for (const fileInfo of res) {
+        let lazy = true;
+        if(fileInfo.fileName === path){
+          lazy = false;
+        }
+        if (fileInfo.type === 0) {
+          children.push({
+            label: fileInfo.fileName,
+            icon: 'folder',
+            handler: (node) => {
+              this.treeNodeClick(node)
+            },
+            lazy: lazy,
+            id: fileInfo.id,
+            type: fileInfo.type,
+            url: fileInfo.url,
+            fileName: fileInfo.fileName,
+            children: []
+          });
+        }
+      }
+      root.children = children;
+    },
     getTreeNodeByKey(key) {
       return this.$refs.treeRef.getNodeByKey(key);
     },
-    setExpanded(key, state) {
+    setTreeExpanded(key, state) {
       this.$refs.treeRef.setExpanded(key, state);
     }
   },
@@ -304,11 +317,12 @@ export default defineComponent({
         return;
       }
       try {
-        this.urlChanged(newData);
+        this.crumbsUpdate(newData);
+        this.setTreeExpanded("/"+newData.join('/'), true);
+        //this.urlChanged(newData);
       } catch (e) {
         if (e.message === 'PageNotFound') {
-          this.$router.addRoute({path: newData, component: ErrorNotFound})
-          this.$router.push(newData);
+          this.pageNotFound(newData);
         } else {
           throw e;
         }
