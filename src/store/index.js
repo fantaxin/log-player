@@ -20,10 +20,12 @@ export default store(function (/* { ssrContext } */) {
         playState: PlayState.NOTUSED,
         isNight: false,
         isFull: false,
-        folderId: 0,
-        filePath: '0',
+        logFileId: -1,
+        contentTab: 'file-tab',
+        //folderId: 0,
+        //filePath: '0',
         rootFile: null,
-        loadFinish: true,
+        //loadFinish: true,
       }
 
     },

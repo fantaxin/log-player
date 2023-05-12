@@ -1,100 +1,132 @@
 <template>
-  <div class="player">
-    <div class="ctrl player-top">
-      <!-- 此处做一个渐变暗的效果 -->
-    </div>
-    <div class="player-mid" id="player-mid">
-      <div class="game-msg">
-        <!-- 当前的比赛时间，比赛状态，比分等 -->
-        <i>{{ frameNum }}HZ</i>
-      </div>
-      <!-- loading... -->
-      <div class="">
-      </div>
-    </div>
-    <div class="ctrl player-bottom">
-      <!-- 此处做一个渐变暗的效果 -->
-      <div class="ctrl-bar">
-
-        <div class="bar-left">
-          <div class="player-state">
-            <!-- 小的播放状态图标 -->
-            <div v-if="playState === PlayState.PLAYING" class="btn-pause" @click="changePlayState(PlayState.PAUSE)">
-              <!-- <i class="iconfont icon-kaishi"></i> -->
-              <i>pa</i>
+  <q-layout view="lHh lpr lFf" container style="height: 84vh" class="shadow-2 rounded-borders">
+    <q-page-container>
+      <q-page padding>
+        <div class="player rounded-borders">
+          <div class="ctrl player-top">
+            <!-- 此处做一个渐变暗的效果 -->
+          </div>
+          <div class="player-mid" id="player-mid">
+            <div class="game-msg">
+              <!-- 当前的比赛时间，比赛状态，比分等 -->
+              <i>{{ frameNum }}HZ</i>
             </div>
-            <div v-else class="btn-play" @click="changePlayState(PlayState.PLAYING)">
-              <i>pl</i>
+            <!-- loading... -->
+            <div class="">
+              <q-circular-progress
+                indeterminate
+                rounded
+                size="50px"
+                color="lime"
+                class="q-ma-md"
+              />
             </div>
           </div>
-          <!-- 跳转（下一个进球点） -->
-          <div class="pre-goal" @click="getGoalTime(false)">
-            <i>p</i>
-          </div>
-          <div class="next-goal" @click="getGoalTime(true)">
-            <i>n</i>
-          </div>
-          <div class="left player-time">
-            <!-- 当前时间 -->
-            <span class="time-current">{{ timeFormat(playTime) }}</span>
+          <div class="ctrl player-bottom">
+            <!-- 此处做一个渐变暗的效果 -->
+            <div class="ctrl-bar">
+
+              <div class="bar-left">
+                <div class="player-state">
+                  <!-- 小的播放状态图标 -->
+                  <div v-if="playState === PlayState.PLAYING" class="btn-pause" @click="changePlayState(PlayState.PAUSE)">
+                    <!-- <i class="iconfont icon-kaishi"></i> -->
+                    <q-icon name="play_arrow" size="2.5em"/>
+                  </div>
+                  <div v-else class="btn-play" @click="changePlayState(PlayState.PLAYING)">
+                    <q-icon name="pause" size="2.5em"/>
+                  </div>
+                </div>
+                <!-- 跳转（下一个进球点） -->
+                <div class="pre-goal" @click="getGoalTime(false)">
+                  <q-icon name="skip_previous" size="1.5em"/>
+                </div>
+                <div class="next-goal" @click="getGoalTime(true)">
+                  <q-icon name="skip_next" size="1.5em"/>
+                </div>
+                <div class="left player-time">
+                  <!-- 当前时间 -->
+                  <span class="time-current">{{ timeFormat(playTime) }}</span>
+                </div>
+              </div>
+
+              <div class="bar-mid">
+                <q-slider
+                  v-model="playTime"
+                  color="deep-orange"
+                  label
+                  :label-value="timeFormat(playTime)"
+                  :marker-labels="markerList"
+                  :min="minTime"
+                  :max="maxTime"
+                  track-size="10px"
+                >
+                  <template v-slot:marker-label-group="scope">
+                    <q-icon
+                      v-for="marker in scope.markerList"
+                      :key="marker.value"
+                      :class="marker.classes"
+                      :style="marker.style"
+                      size="sm"
+                      color="orange"
+                      :name="'sports_soccer'"
+                      @click="markerClick(marker)"/>
+                  </template>
+                </q-slider>
+
+              </div>
+
+              <div class="bar-right">
+                <!-- 倍速 -->
+                <div class="player-speed">
+<!--                  <q-icon name="settings_slow_motion" size="1.9em"/>-->
+                  <q-icon name="speed" size="1.5em"/>
+<!--                  <q-icon name="slow_motion_video" />-->
+                  <!-- <el-dropdown trigger="click">
+                    <i>bs</i>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item @click="changePlaySpeed(2)">2.0</el-dropdown-item>
+                        <el-dropdown-item @click="changePlaySpeed(1.5)">1.5</el-dropdown-item>
+                        <el-dropdown-item @click="changePlaySpeed(1)">1.0</el-dropdown-item>
+                        <el-dropdown-item @click="changePlaySpeed(0.5)">0.5</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown> -->
+                </div>
+                <!-- 全屏 -->
+                <div class="player-full">
+                  <q-icon name="fullscreen" size="1.5em"/>
+                </div>
+                <div class="right player-time">
+                  <!-- 总时长 -->
+                  <span class="time-duration">{{ timeFormat(maxTime) }}</span>
+                </div>
+              </div>
+
+            </div>
           </div>
         </div>
+      </q-page>
+    </q-page-container>
+  </q-layout>
 
-        <div class="bar-mid">
-          <!-- <q-slider class="q-mt-xl" v-model="playTime" color="deep-orange" label markers :marker-labels="markerList"
-            :min="minTime" :max="maxTime" track-size="10px">
-            <template v-slot:marker-label-group="scope">
-              <q-icon v-for="marker in scope.markerList" :key="marker.value" :class="marker.classes" :style="marker.style"
-                size="sm" color="orange" :name="'sports_soccer'" @click="click(marker)" />
-            </template>
-          </q-slider> -->
-
-        </div>
-
-        <div class="bar-right">
-          <!-- 倍速 -->
-          <div class="player-speed">
-            <!-- <el-dropdown trigger="click">
-              <i>bs</i>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item @click="changePlaySpeed(2)">2.0</el-dropdown-item>
-                  <el-dropdown-item @click="changePlaySpeed(1.5)">1.5</el-dropdown-item>
-                  <el-dropdown-item @click="changePlaySpeed(1)">1.0</el-dropdown-item>
-                  <el-dropdown-item @click="changePlaySpeed(0.5)">0.5</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown> -->
-          </div>
-          <!-- 全屏 -->
-          <div class="player-full">
-            <i>qp</i>
-          </div>
-          <div class="right player-time">
-            <!-- 总时长 -->
-            <span class="time-duration">{{ timeFormat(maxTime) }}</span>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </div>
 </template>
 <script>
 import * as THREE from "three";
-import { h } from 'vue'
-import { toRaw } from "vue";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { World } from "src/js/model/World";
-import { MeshFactory } from "src/js/model/loader/MeshFactory";
-import { GameDescription } from "src/js/game/description/GameDescription";
-import { TeamDescription } from "src/js/game/description/TeamDescription.js";
-import { AgentDescription } from "src/js/game/description/AgentDescription";
-import { request } from "src/js/test/request";
-import { GameType, TeamSide, PlayState, GameMode } from "src/js/util/Constants.js";
-import { timeFormat } from "src/js/util/util.js"
-import { defineComponent } from 'vue'
-import { useStore } from 'vuex'
+import {h} from 'vue'
+import {toRaw} from "vue";
+import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+import {World} from "src/js/model/World";
+import {MeshFactory} from "src/js/model/loader/MeshFactory";
+import {GameDescription} from "src/js/game/description/GameDescription";
+import {TeamDescription} from "src/js/game/description/TeamDescription.js";
+import {AgentDescription} from "src/js/game/description/AgentDescription";
+import {request} from "src/js/test/request";
+import {GameType, TeamSide, PlayState, GameMode} from "src/js/util/Constants.js";
+import {timeFormat} from "src/js/util/util.js"
+import {defineComponent} from 'vue'
+import {useStore} from 'vuex'
 
 let sliderBtn;
 let controls;
@@ -122,7 +154,9 @@ export default defineComponent({
       playTime: 0, // 播放器时间
       minTime: 0, // 播放器最小时间
       maxTime: 3000, // 播放器总时间
+      markerList: [1000, 2000],
       marks: {}, // 进球时间点标记
+
       frameNum: 60.0, // 画面帧率
       playSpeed: 1, // 播放速度
       gameTime: 0, // 比赛内时间
@@ -134,6 +168,7 @@ export default defineComponent({
     };
   },
   created() {
+    return;
     this.glinit();
     this.worldInit();
     this.scene.add(this.world.group);
@@ -146,7 +181,7 @@ export default defineComponent({
           return;
         }
         if (frame.gameMode === GameMode.GOAL_L || frame.gameMode === GameMode.GOAL_R) {
-          Object.assign(this.marks, { [Math.floor(idx / 10)]: {} });
+          Object.assign(this.marks, {[Math.floor(idx / 10)]: {}});
           // this.createSliderLabel(Math.floor(idx / 10));
           gamemode = frame.gameMode;
         }
@@ -154,6 +189,7 @@ export default defineComponent({
     })
   },
   mounted() {
+    return;
     player_mid = document.getElementById("player-mid");
     player_mid.appendChild(this.renderer.domElement);
     //this.createSliderLabel(100);
@@ -161,6 +197,9 @@ export default defineComponent({
     this.animate();
   },
   methods: {
+    markerClick(marker){
+      this.playTime = marker.value;
+    },
     worldInit() {
       let agentDesArr1 = [];
       let agentDesArr2 = [];
@@ -231,7 +270,7 @@ export default defineComponent({
       );
       this.camera.position.set(0, 50, 70);
       this.camera.lookAt(new THREE.Vector3(0, 0, -30));
-      this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      this.renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
       this.renderer.setSize(window.innerWidth, window.innerHeight);
       this.renderer.setPixelRatio(window.devicePixelRatio);
       this.renderer.gammaOutput = true;
@@ -251,9 +290,9 @@ export default defineComponent({
 
       document.body.appendChild(this.renderer.domElement);
 
-      const x = new THREE.MeshBasicMaterial({ color: "rgb(255, 0, 0)" });
-      const y = new THREE.MeshBasicMaterial({ color: "rgb(0, 255, 0)" });
-      const z = new THREE.MeshBasicMaterial({ color: "rgb(0, 0, 255)" });
+      const x = new THREE.MeshBasicMaterial({color: "rgb(255, 0, 0)"});
+      const y = new THREE.MeshBasicMaterial({color: "rgb(0, 255, 0)"});
+      const z = new THREE.MeshBasicMaterial({color: "rgb(0, 0, 255)"});
       let a = new Float32Array([0, 0, 0, 10, 0, 0]);
       let b = new Float32Array([0, 0, 0, 0, 10, 0]);
       let c = new Float32Array([0, 0, 0, 0, 0, 10]);
@@ -362,7 +401,7 @@ export default defineComponent({
       sliderBtn.style.opacity = 0;
     },
     createSliderLabel(key) {
-      Object.assign(this.marks[key], { label: h('i', { class: 'iconfont icon-yundongzuqiu' }) });
+      Object.assign(this.marks[key], {label: h('i', {class: 'iconfont icon-yundongzuqiu'})});
       // Object.keys(this.marks).forEach(key => {
       //   Object.assign(this.marks[key], { label: h('i', { class: 'iconfont icon-yundongzuqiu', onClick: () => { this.changePlayTime(Number.parseInt(key)) } }) });
       // })
@@ -402,6 +441,9 @@ export default defineComponent({
   computed: {
     playState() {
       return this.store.state.playState;
+    },
+    logFileId() {
+      return this.store.state.logFileId;
     }
   },
   watch: {
@@ -412,6 +454,28 @@ export default defineComponent({
       if (newData) {
 
       }
+    },
+    logFileId(newData, oldData) {
+      if (newData === oldData) {
+        return;
+      }
+      if (this.store.state.contentTab !== 'media-tab') {
+        this.store.state.playState = PlayState.NOTUSED;
+      }
+      if (newData === -1) {
+        // 未选择播放文件
+        this.store.state.playState = PlayState.NOTUSED;
+      } else if (newData === 0) {
+        // 选择本地上传文件
+        this.store.state.playState = PlayState.LOADING;
+        // 获取并解析json文件
+        this.store.state.playState = PlayState.PAUSE;
+      } else {
+        // 选择服务器文件
+        this.store.state.playState = PlayState.LOADING;
+        // 获取并解析json文件
+        this.store.state.playState = PlayState.PAUSE;
+      }
     }
   }
 });
@@ -419,8 +483,8 @@ export default defineComponent({
 </script>
 <style>
 .player {
-  width: 90vw;
-  height: 90vh;
+  width: 100%;
+  height: 79vh;
   display: inline-flex;
   border-style: solid;
   position: relative;
@@ -444,10 +508,10 @@ export default defineComponent({
 }
 
 .player-bottom {
-  background: linear-gradient(transparent, rgba(77, 77, 77, 1));
+  /*background: linear-gradient(transparent, rgba(77, 77, 77, 1));*/
   position: absolute;
   width: inherit;
-  height: 50px;
+  height: 60px;
   bottom: 0;
 }
 

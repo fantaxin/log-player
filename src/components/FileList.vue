@@ -73,6 +73,9 @@ export default {
     fileList: Array,
   },
   mounted() {
+    // if (this.route.params.url === "") {
+    //   this.router.push("/log")
+    // }
     this.getFileList();
   },
   methods: {
@@ -105,7 +108,7 @@ export default {
       if (props.row.type === 0) {
         this.router.push(props.row.url);
       } else {
-        //TODO: 双击文件播放
+        this.store.state.logFileId = props.row.id;
       }
     },
     fileListBack() {
@@ -115,11 +118,20 @@ export default {
     },
     getFileList() {
       this.loading = true;
-      request.get("/api/log-player/fileListUrl?url=" + "%2F"+this.route.params.url.join('%2F')).then(res => {
-        this.rows = res;
-      }).finally(reason => {
-        this.loading = false;
-      })
+      this.rows = this.store.state.rootFile.children;
+      if (this.rows.length === 0) {
+        request.get("/api/log-player/fileListUrl?url=" + this.route.fullPath).then(res => {
+          this.rows = res;
+        }).finally(reason => {
+          this.loading = false;
+        })
+      }
+      this.loading = false;
+      // request.get("/api/log-player/fileListUrl?url=" + this.route.fullPath).then(res => {
+      //   this.rows = res;
+      // }).finally(reason => {
+      //   this.loading = false;
+      // })
     }
   },
   data() {
@@ -154,21 +166,12 @@ export default {
     }
   },
   computed: {
-    // rootFile(){
-    //   return this.store.state.rootFile;
-    // },
     rootFile() {
       return this.store.state.rootFile;
     }
   },
   watch: {
     rootFile(newData, oldData) {
-      // if(newData===oldData){
-      //   return;
-      // }
-      // if(Util.isNull(newData)){
-      //   return;
-      // }
       this.rows = newData.children;
       if (this.rows.length === 0) {
         this.loading = true;
@@ -207,6 +210,7 @@ export default {
     top: 0
 
   /* this is when the loading indicator appears */
+
 
   &.q-table--loading thead tr:last-child th
     /* height of all previous header rows */

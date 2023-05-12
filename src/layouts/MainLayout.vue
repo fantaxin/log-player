@@ -19,7 +19,7 @@
           </q-breadcrumbs>
 
           <q-space/>
-          <q-tabs v-model="contentTab" align="right">
+          <q-tabs v-model="store.state.contentTab" align="right">
             <q-tab name="file-tab" label="文件列表"/>
             <q-tab name="media-tab" label="播放器"/>
           </q-tabs>
@@ -50,7 +50,7 @@
 
       <q-page-container>
         <q-card>
-          <q-tab-panels v-model="contentTab" animated>
+          <q-tab-panels v-model="store.state.contentTab" animated>
             <q-tab-panel name="file-tab">
                 <FileList/>
             </q-tab-panel>
@@ -91,7 +91,7 @@ export default defineComponent({
       isDark: false,
       leftDrawerOpen: true,
       firstClick: true,
-      contentTab: 'file-tab',
+      //contentTab: 'file-tab',
       selectedKey: "",
       expandedKeys:[],
       expandedKeysSet:new Set(),
@@ -101,8 +101,8 @@ export default defineComponent({
   },
   async mounted() {
     if (this.route.params.url === "") {
-      await this.router.push("/log")
       await this.loadOnFirst(['log']);
+      await this.router.push("/log")
     } else {
       let allUrl = '/' + this.route.params.url.join('/');
       try {
@@ -189,7 +189,7 @@ export default defineComponent({
       this.$q.dark.set(this.isDark);
     },
     treeSelectedChange(path) {
-      this.store.state.filePath = path;
+      //this.store.state.filePath = path;
     },
     treeNodeClick(node) {
       // 第一次点击时，将所有在加载阶段加载的node都设置为懒加载
